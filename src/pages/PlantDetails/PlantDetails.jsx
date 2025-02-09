@@ -117,6 +117,7 @@ const PlantDetails = () => {
             plant={plant}
             closeModal={closeModal}
             isOpen={isOpen}
+            refetch={refetch}
           />
         </div>
       </div>
