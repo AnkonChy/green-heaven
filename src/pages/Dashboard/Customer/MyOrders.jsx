@@ -87,6 +87,7 @@ const MyOrders = () => {
                     <CustomerOrderDataRow
                       key={orderData._id}
                       orderData={orderData}
+                      refetch={refetch}
                     />
                   ))}
                 </tbody>
