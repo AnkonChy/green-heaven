@@ -1,9 +1,15 @@
 import { useState } from "react";
 import DeleteModal from "../../Modal/DeleteModal";
 import UpdatePlantModal from "../../Modal/UpdatePlantModal";
+import useAxiosSecure from "../../../hooks/useAxiosSecure";
+import toast from "react-hot-toast";
 
+// eslint-disable-next-line react/prop-types
 const PlantDataRow = ({ plant, refetch }) => {
+  const axiosSecure = useAxiosSecure();
+  //delete modal state
   let [isOpen, setIsOpen] = useState(false);
+  //update modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   function openModal() {
@@ -13,7 +19,20 @@ const PlantDataRow = ({ plant, refetch }) => {
     setIsOpen(false);
   }
 
-  const { image, name, category, price, quantity, id } = plant || {};
+  const { image, name, category, price, quantity, _id } = plant || {};
+
+  const handlePlantDelete = async () => {
+    try {
+      const { data } = await axiosSecure.delete(`/plants/${_id}`);
+      toast.success("Plant successfully removed");
+      refetch();
+    } catch (err) {
+      console.log(err);
+      toast.error(err.response.data);
+    } finally {
+      closeModal();
+    }
+  };
 
   return (
     <tr>
@@ -54,7 +73,12 @@ const PlantDataRow = ({ plant, refetch }) => {
           ></span>
           <span className="relative">Delete</span>
         </span>
-        <DeleteModal isOpen={isOpen} closeModal={closeModal} />
+        {/* Delete modal  */}
+        <DeleteModal
+          handleDelete={handlePlantDelete}
+          isOpen={isOpen}
+          closeModal={closeModal}
+        />
       </td>
       <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
         <span
