@@ -47,7 +47,6 @@ const AddPlant = () => {
       seller,
     };
 
-    console.table(plantData);
     //save plant in db
     try {
       //post request
