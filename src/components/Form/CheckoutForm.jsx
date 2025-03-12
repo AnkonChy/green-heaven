@@ -2,12 +2,39 @@ import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js";
 
 import "./CheckoutForm.css";
 import Button from "../Shared/Button/Button";
+import { useEffect, useState } from "react";
+import useAxiosSecure from "../../hooks/useAxiosSecure";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
-const CheckoutForm = ({ closeModal, purchaseInfo, refetch }) => {
+const CheckoutForm = ({ closeModal, purchaseInfo, refetch, totalQuantity }) => {
+  const navigate = useNavigate();
+  const axiosSecure = useAxiosSecure();
+  const [clientSecret, setClientSecret] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    getPaymentIntent();
+  }, [purchaseInfo]);
+
+  console.log(clientSecret);
+  const getPaymentIntent = async () => {
+    try {
+      const { data } = await axiosSecure.post("/create-payment-intent", {
+        quantity: purchaseInfo?.quantity,
+        plantId: purchaseInfo?.plantId,
+      });
+      setClientSecret(data.clientSecret);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   const stripe = useStripe();
   const elements = useElements();
 
   const handleSubmit = async (event) => {
+    setProcessing(true);
     // Block native form submission.
     event.preventDefault();
 
@@ -23,6 +50,7 @@ const CheckoutForm = ({ closeModal, purchaseInfo, refetch }) => {
     const card = elements.getElement(CardElement);
 
     if (card == null) {
+      setProcessing(false);
       return;
     }
 
@@ -33,9 +61,44 @@ const CheckoutForm = ({ closeModal, purchaseInfo, refetch }) => {
     });
 
     if (error) {
-      console.log("[error]", error);
+      setProcessing(false);
+      return console.log("[error]", error);
     } else {
       console.log("[PaymentMethod]", paymentMethod);
+    }
+
+    // confirm payment
+    const { paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: card,
+        billing_details: {
+          name: purchaseInfo?.customer?.name,
+          email: purchaseInfo?.customer?.email,
+        },
+      },
+    });
+    if (paymentIntent.status === "succeeded") {
+      try {
+        //save data in db
+        await axiosSecure.post("/order", {
+          ...purchaseInfo,
+          transactionId: paymentIntent?.id,
+        });
+        //decrese quantity from plant collection
+        await axiosSecure.patch(`/plants/quantity/${purchaseInfo?.plantId}`, {
+          quantityToUpdate: totalQuantity,
+          status: "decrease",
+        });
+
+        toast.success("Order successfull");
+        refetch();
+        navigate("/dashboard/my-orders");
+      } catch (err) {
+        console.log(err);
+      } finally {
+        setProcessing(false);
+        closeModal();
+      }
     }
   };
 
@@ -59,7 +122,7 @@ const CheckoutForm = ({ closeModal, purchaseInfo, refetch }) => {
       />
       <div className="flex justify-around mt-2 gap-2">
         <Button
-          disabled={!stripe}
+          disabled={!stripe || !clientSecret || processing}
           type="submit"
           label={`Pay ${purchaseInfo?.price}$`}
         />
